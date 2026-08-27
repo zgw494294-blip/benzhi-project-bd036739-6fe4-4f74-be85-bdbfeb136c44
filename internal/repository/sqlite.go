@@ -181,17 +181,18 @@ func (s *Store) Apply(ctx context.Context, projectID string, expectedVersion int
 	if projectID == "" || expectedVersion < 1 || idempotencyKey == "" || commandName == "" {
 		return CommandResult{}, errors.New("事务命令参数不完整")
 	}
-	tx, err := s.db.BeginTx(ctx, nil)
+	transactionContext := context.WithoutCancel(ctx)
+	tx, err := s.db.BeginTx(transactionContext, nil)
 	if err != nil {
 		return CommandResult{}, err
 	}
 	defer tx.Rollback()
-	if cached, ok, err := lookupIdempotency(ctx, tx, projectID, idempotencyKey, commandName); err != nil {
+	if cached, ok, err := lookupIdempotency(transactionContext, tx, projectID, idempotencyKey, commandName); err != nil {
 		return CommandResult{}, err
 	} else if ok {
 		return CommandResult{JSON: cached, Idempotent: true}, nil
 	}
-	snapshot, err := loadSnapshot(ctx, tx, projectID)
+	snapshot, err := loadSnapshot(transactionContext, tx, projectID)
 	if err != nil {
 		return CommandResult{}, err
 	}
@@ -205,7 +206,7 @@ func (s *Store) Apply(ctx context.Context, projectID string, expectedVersion int
 	if mutation.Project.ID != projectID || mutation.Project.Version != expectedVersion+1 {
 		return CommandResult{}, errors.New("工作流产生了无效的项目版本")
 	}
-	updated, err := tx.ExecContext(ctx, `UPDATE projects SET title=?,performance_version=?,language=?,frame_rate=?,duration_ms=?,producer_id=?,reviewer_id=?,status=?,version=?,updated_at=? WHERE project_id=? AND version=?`,
+	updated, err := tx.ExecContext(transactionContext, `UPDATE projects SET title=?,performance_version=?,language=?,frame_rate=?,duration_ms=?,producer_id=?,reviewer_id=?,status=?,version=?,updated_at=? WHERE project_id=? AND version=?`,
 		mutation.Project.Title, mutation.Project.PerformanceVersion, mutation.Project.Language, mutation.Project.FrameRate, mutation.Project.DurationMS, mutation.Project.ProducerID, mutation.Project.ReviewerID, mutation.Project.Status, mutation.Project.Version, encodeTime(mutation.Project.UpdatedAt), projectID, expectedVersion)
 	if err != nil {
 		return CommandResult{}, fmt.Errorf("更新项目投影: %w", err)
@@ -214,7 +215,7 @@ func (s *Store) Apply(ctx context.Context, projectID string, expectedVersion int
 		return CommandResult{}, ErrVersionConflict
 	}
 	if mutation.Revision != nil {
-		if err := insertRevision(ctx, tx, *mutation.Revision); err != nil {
+		if err := insertRevision(transactionContext, tx, *mutation.Revision); err != nil {
 			return CommandResult{}, err
 		}
 	}
@@ -223,31 +224,31 @@ func (s *Store) Apply(ctx context.Context, projectID string, expectedVersion int
 			return CommandResult{}, errors.New("保存问题时缺少对应修订")
 		}
 		for _, finding := range mutation.Findings {
-			if err := insertFinding(ctx, tx, finding); err != nil {
+			if err := insertFinding(transactionContext, tx, finding); err != nil {
 				return CommandResult{}, err
 			}
 		}
 	}
 	if mutation.Review != nil {
-		if err := insertReview(ctx, tx, *mutation.Review); err != nil {
+		if err := insertReview(transactionContext, tx, *mutation.Review); err != nil {
 			return CommandResult{}, err
 		}
 	}
 	if mutation.Manifest != nil {
-		if err := insertManifest(ctx, tx, *mutation.Manifest); err != nil {
+		if err := insertManifest(transactionContext, tx, *mutation.Manifest); err != nil {
 			return CommandResult{}, err
 		}
 	}
 	if mutation.Credential != nil {
-		if err := insertCredential(ctx, tx, *mutation.Credential, mutation.Token); err != nil {
+		if err := insertCredential(transactionContext, tx, *mutation.Credential, mutation.Token); err != nil {
 			return CommandResult{}, err
 		}
 	}
 	event := domain.AuditEvent{ProjectID: projectID, Version: mutation.Project.Version, ActorID: mutation.ActorID, Action: mutation.Action, Detail: mutation.Detail, CreatedAt: mutation.Project.UpdatedAt}
-	if err := insertAudit(ctx, tx, event); err != nil {
+	if err := insertAudit(transactionContext, tx, event); err != nil {
 		return CommandResult{}, err
 	}
-	if err := insertIdempotency(ctx, tx, projectID, idempotencyKey, commandName, result, s.now()); err != nil {
+	if err := insertIdempotency(transactionContext, tx, projectID, idempotencyKey, commandName, result, s.now()); err != nil {
 		return CommandResult{}, err
 	}
 	if err := tx.Commit(); err != nil {
