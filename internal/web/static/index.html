@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="剧场无障碍字幕包校审与发布工作台">
+  <title>字幕发布工作台</title>
+  <link rel="stylesheet" href="/assets/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">CAPTION RELEASE WORKBENCH</p>
+      <h1>字幕发布工作台</h1>
+    </div>
+    <div class="status-cluster">
+      <span id="connection" class="signal">本地服务</span>
+      <span id="project-status" class="status">尚未建档</span>
+      <span id="project-version" class="version">v—</span>
+    </div>
+  </header>
+
+  <main>
+    <aside class="rail panel">
+      <div class="panel-heading">
+        <h2>项目</h2>
+        <button id="new-project" class="quiet" type="button">新建</button>
+      </div>
+      <div id="project-list" class="project-list" aria-live="polite"></div>
+      <div class="filters project-filters">
+        <select id="project-status-filter" aria-label="按项目状态筛选"><option value="">全部状态</option><option value="draft">草稿</option><option value="remediation">待整改</option><option value="review">待复核</option><option value="reviewed">已复核</option><option value="frozen">已冻结</option><option value="published">已发布</option></select>
+        <input id="project-language-filter" placeholder="语言" maxlength="32">
+        <input id="project-producer-filter" placeholder="制作员" maxlength="80">
+        <input id="project-reviewer-filter" placeholder="校审员" maxlength="80">
+      </div>
+      <section class="tasks">
+        <h3>当前待办</h3>
+        <ul id="task-list"><li>建立演出字幕项目</li></ul>
+      </section>
+    </aside>
+
+    <section class="workspace">
+      <nav class="tabs" aria-label="工作台模块">
+        <button class="tab active" data-tab="overview" type="button">时间轴与问题</button>
+        <button class="tab" data-tab="review" type="button">复核与发布</button>
+        <button class="tab" data-tab="audit" type="button">审计时间线</button>
+      </nav>
+
+      <div id="notice" class="notice hidden" role="status"></div>
+
+      <section id="overview" class="tab-page active">
+        <div class="hero-grid">
+          <article class="panel project-card">
+            <div class="panel-heading"><h2>演出建档</h2><span class="step">01</span></div>
+            <form id="create-form" class="form-grid">
+              <label>演出标题<input name="title" required maxlength="160" value="雾中来信"></label>
+              <label>演出版本<input name="performanceVersion" required maxlength="80" value="首演版"></label>
+              <label>语言<input name="language" required maxlength="32" value="zh-CN"></label>
+              <label>帧率<input name="frameRate" required type="number" step="0.01" value="25"></label>
+              <label>总时长（毫秒）<input name="durationMs" required type="number" value="900000"></label>
+              <label>制作员<input name="producerId" required value="producer-li"></label>
+              <label>校审员<input name="reviewerId" required value="reviewer-wang"></label>
+              <button class="primary span" type="submit">建立项目</button>
+            </form>
+          </article>
+
+          <article class="panel import-card">
+            <div class="panel-heading"><h2>导入 WebVTT</h2><span class="step">02</span></div>
+            <form id="import-form">
+              <label>修订说明<input name="changeNote" maxlength="500" value="首次导入"></label>
+              <label>时间轴文本<textarea name="webvtt" rows="13" spellcheck="false">WEBVTT
+
+00:00:01.000 --> 00:00:03.000
+&lt;v 林岚&gt;灯亮了。
+
+00:00:03.200 --> 00:00:05.500
+&lt;v 周远&gt;我们该出发了。
+
+00:00:06.000 --> 00:00:08.000
+[远处传来钟声]</textarea></label>
+              <button class="primary" type="submit">导入并检查</button>
+            </form>
+          </article>
+        </div>
+
+        <article class="panel timeline-card">
+          <div class="panel-heading wrap">
+            <div><h2>字幕定位视图</h2><p id="revision-meta" class="muted">尚无修订</p></div>
+            <div class="filters">
+              <select id="severity-filter" aria-label="按严重度筛选"><option value="">全部严重度</option><option value="blocker">阻断</option><option value="warning">警告</option></select>
+              <select id="finding-status-filter" aria-label="按处置状态筛选"><option value="">全部状态</option><option value="open">开放</option><option value="false_positive">误报</option><option value="resolved">已解决</option></select>
+              <button id="refresh" class="quiet" type="button">刷新</button>
+            </div>
+          </div>
+          <div id="timeline" class="timeline empty">选择项目后显示字幕段</div>
+          <div class="report-row"><span>质量报告</span><span id="quality-report">尚无数据</span><button id="export" class="quiet" type="button">导出冻结包</button></div>
+          <div id="revision-history" class="compact-list"></div>
+        </article>
+      </section>
+
+      <section id="review" class="tab-page">
+        <div class="review-grid">
+          <article class="panel action-card">
+            <div class="panel-heading"><h2>独立复核</h2><span class="step">03</span></div>
+            <label>操作者<input id="review-actor" value="reviewer-wang"></label>
+            <label>校审意见<textarea id="review-comment" rows="4" placeholder="退回时必须填写意见"></textarea></label>
+            <div class="button-row">
+              <button id="submit-review" class="secondary" type="button">制作员送审</button>
+              <button id="approve-review" class="primary" type="button">校审通过</button>
+              <button id="return-review" class="danger" type="button">整包退回</button>
+            </div>
+            <div id="review-history" class="compact-list"></div>
+          </article>
+
+          <article class="panel action-card">
+            <div class="panel-heading"><h2>冻结与签发</h2><span class="step">04</span></div>
+            <label>发布负责人<input id="release-actor" value="publisher-chen"></label>
+            <div class="button-stack">
+              <button id="freeze" class="secondary" type="button">冻结确定性清单</button>
+              <button id="issue" class="primary" type="button">签发发布凭据</button>
+            </div>
+            <label>离线凭据<textarea id="credential-token" rows="7" placeholder="签发后自动填入，也可粘贴其他凭据"></textarea></label>
+            <div class="button-row">
+              <button id="verify" class="secondary" type="button">离线验证</button>
+              <button id="publish" class="primary" type="button">确认发布</button>
+            </div>
+            <div id="verification" class="verification neutral">尚未验证凭据</div>
+          </article>
+        </div>
+        <article class="panel manifest-card">
+          <div class="panel-heading"><h2>冻结清单</h2><span id="manifest-digest" class="digest">尚未冻结</span></div>
+          <pre id="manifest-view">复核通过并冻结后展示规范化摘要。</pre>
+        </article>
+      </section>
+
+      <section id="audit" class="tab-page">
+        <article class="panel">
+          <div class="panel-heading"><h2>不可变审计时间线</h2><span class="step">LIVE</span></div>
+          <ol id="audit-list" class="audit-list"><li>建立项目后开始记录。</li></ol>
+        </article>
+      </section>
+    </section>
+  </main>
+
+  <template id="cue-template">
+    <article class="cue">
+      <div class="cue-time"></div>
+      <div class="cue-body"><strong class="cue-speaker"></strong><p class="cue-text"></p><p class="cue-sound"></p><div class="cue-styles"></div></div>
+      <div class="cue-findings"></div>
+    </article>
+  </template>
+  <script src="/assets/app.js" defer></script>
+</body>
+</html>

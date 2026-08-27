@@ -1,0 +1,22 @@
+{
+  "project_name": "caption-release-workbench",
+  "interface_kind": "web_ui",
+  "language": "zh-CN",
+  "persistence": "SQLite",
+  "minimum_business_chains": 3,
+  "required_chains": [
+    "建档导入与确定性检查",
+    "问题整改与独立复核",
+    "冻结签发与发布验证"
+  ],
+  "required_security": [
+    "expectedVersion 乐观并发",
+    "idempotencyKey 幂等固化",
+    "Ed25519 离线签名",
+    "仅默认监听高位回环地址"
+  ],
+  "acceptance_commands": [
+    {"argv": ["go", "test", "./..."], "working_directory": "."},
+    {"argv": ["go", "run", "./cmd/server", "-addr=127.0.0.1:19087", "-selfcheck"], "working_directory": "."}
+  ]
+}
